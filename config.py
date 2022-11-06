@@ -25,3 +25,10 @@ def get_token():
             return json.load(f)["token"]
     except:
         return error_message
+
+def get_admin_ids():
+    try:
+        with open(path_to_config, 'r') as f:
+            return json.load(f)["admin"]
+    except:
+        return error_message
