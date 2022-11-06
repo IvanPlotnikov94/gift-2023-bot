@@ -2,6 +2,7 @@ from aiogram import Dispatcher, executor
 import motor.motor_asyncio as m_as
 from config import read_config_for_db
 
+
 class DbService:
     def __init__(self, bot):
         self.dispatcher = Dispatcher(bot)
