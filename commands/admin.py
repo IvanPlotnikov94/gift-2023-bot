@@ -53,10 +53,7 @@ async def cancel(message: types.Message, state: FSMContext):
 
 def register_admin_commands(dispatcher: Dispatcher):
     dispatcher.register_message_handler(register_new_quest, commands=["register_new_quest"], state=None)
-    dispatcher.register_message_handler(
-        register_new_answer, state=FsmAdmin.set_question)
-    dispatcher.register_message_handler(
-        finish_register, state=FsmAdmin.set_answer)
+    dispatcher.register_message_handler(register_new_answer, state=FsmAdmin.set_question)
+    dispatcher.register_message_handler(finish_register, state=FsmAdmin.set_answer)
     dispatcher.register_message_handler(cancel, state="*", commands="Отмена")
-    dispatcher.register_message_handler(cancel, Text(
-        equals="Отмена", ignore_case=True), state="*")
+    dispatcher.register_message_handler(cancel, Text(equals="Отмена", ignore_case=True), state="*")
