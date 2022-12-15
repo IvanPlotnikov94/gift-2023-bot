@@ -67,6 +67,51 @@ async def show_quests(message: types.Message):
         except Exception as ex:
             print(str(ex))  # ToDo: логирование
 
+# region Команда "Добавить подарок"
+
+
+async def add_gift(message: types.Message):
+    # Команда "Зарегистрировать загадку"
+    if message.chat.id in ADMIN_ID:
+        await FsmAdmin.set_gift_name.set()
+        await message.reply("Введи наименование подарка")
+
+
+async def set_gift_name(message: types.Message, state=FSMContext):
+    # Обработка ввода наименования подарка
+    if message.chat.id in ADMIN_ID:
+        try:
+            async with state.proxy() as gift:
+                gift['name'] = message.text
+            await FsmAdmin.set_gift_amount.set()
+            await message.reply("Введи количество")
+        except Exception as ex:
+            print(str(ex))  # ToDo: логирование
+            await state.finish()
+            await bot.send_message(message.chat.id, "Возникла ошибка. Пожалуйста, обратись к разработчику.")
+
+
+async def set_gift_amount(message: types.Message, state=FSMContext):
+    # Обработка ввода имеющегося количества данного подарка
+    if message.chat.id in ADMIN_ID:
+        try:
+            async with state.proxy() as gift:
+                gift['amount'] = message.text
+            # Добавление подарка в БД
+            gift_found = await db.gifts.find_one({"name": gift['name']})
+            if not gift_found:
+                await db_service.add_gift(db, {"name": gift['name'], "amount": gift['amount'], "user_id": ""})
+                await message.reply(f"Готово! Твой подарок: '{gift['name']}' в количестве {gift['amount']} шт. добавлен в базу.")
+            else:
+                await bot.send_message(message.chat.id, "Этот подарок уже есть в базе! Попробуй добавить подарок с другим наименованием. А если хочешь изменить наименование/количество, воспользуйся отдельной кнопкой в меню.")
+
+            await state.finish()
+        except Exception as ex:
+            print(str(ex))  # ToDo: логирование
+            await state.finish()
+            await bot.send_message(message.chat.id, "Возникла ошибка. Пожалуйста, обратись к разработчику.")
+# endregion
+
 
 async def cancel(message: types.Message, state: FSMContext):
     # Handler выхода из конечного автомата
@@ -84,6 +129,10 @@ def register_admin_commands(dispatcher: Dispatcher):
     dispatcher.register_message_handler(finish_register, state=FsmAdmin.set_answer)
 
     dispatcher.register_message_handler(show_quests, commands=["show_quests"], state=None)
+
+    dispatcher.register_message_handler(add_gift, commands=["add_new_gift"], state=None)
+    dispatcher.register_message_handler(set_gift_name, state=FsmAdmin.set_gift_name)
+    dispatcher.register_message_handler(set_gift_amount, state=FsmAdmin.set_gift_amount)
 
     dispatcher.register_message_handler(cancel, state="*", commands="Отмена")
     dispatcher.register_message_handler(cancel, Text(equals="Отмена", ignore_case=True), state="*")

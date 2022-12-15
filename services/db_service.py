@@ -17,6 +17,9 @@ class DbService:
         # Коллекция с вопросами (questions)
         self.questions = self.cluster[f"{self.config['db_name']}"][f"{self.config['questions_collection']}"]
 
+        # Коллекция с подарками (gifts)
+        self.gifts = self.cluster[f"{self.config['db_name']}"][f"{self.config['gifts_collection']}"]
+
 
 async def add_user(db: DbService, user):
     # Добавляет пользователя в БД
@@ -38,4 +41,13 @@ async def add_question(db: DbService, question, answer):
     db.questions.insert_one({
         "question": question,
         "answer": answer
+    })
+
+
+async def add_gift(db: DbService, gift):
+    # Добавляет подарок в БД
+    db.gifts.insert_one({
+        "name": gift["name"],
+        "amount": gift["amount"],
+        "userId": gift["user_id"]
     })
