@@ -1,11 +1,29 @@
 from aiogram import Dispatcher, executor
 import motor.motor_asyncio as m_as
 from config import read_config_for_db
+from datetime import datetime
 
 
 class DbService:
     def __init__(self, bot):
         self.dispatcher = Dispatcher(bot)
         self.config = read_config_for_db()
-        self.connection_string = f"mongodb+srv://{self.config['username']}:{self.config['password']}@{self.config['cluster_name']}.{self.config['domain_name']}/{self.config['db_name']}?retryWrites=true&w=majority"
-        self.collection = self.cluster[f"{self.config['db_name']}"][f"{self.config['collection_name']}"]
+        self.cluster = m_as.AsyncIOMotorClient(
+            "mongodb+srv://gift2023bot:Ub1pak7m@tgbot.ll7mc1z.mongodb.net/gift2023_db?retryWrites=true&w=majority")
+
+        # Коллекция с пользователями (users)
+        self.users = self.cluster[f"{self.config['db_name']}"][f"{self.config['users_collection']}"]
+
+
+async def add_user(db: DbService, user):
+    date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    db.users.insert_one({
+        "_id": user.id,
+        "date": str(date),
+        "username": user.username,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "bio": user.bio,
+        "type": user.type,
+        "title": user.title
+    })
