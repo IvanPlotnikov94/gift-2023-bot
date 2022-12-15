@@ -6,6 +6,7 @@ from aiogram.dispatcher import FSMContext
 from states.admin import FsmAdmin
 from config import get_admin_ids
 from aiogram.dispatcher.filters import Text
+from services import db_service, db
 
 ADMIN_ID = get_admin_ids()
 
@@ -32,10 +33,15 @@ async def finish_register(message: types.Message, state=FSMContext):
         try:
             async with state.proxy() as quest:
                 quest['answer'] = message.text
-            # ToDo: Сохранить в БД
-            async with state.proxy() as quest:
-                # ToDo: убрать {quest}
-                await message.reply(f"Отлично, загадка зарегистрирована! Твоя загадка: {quest}")
+
+                # Добавление загадки с ответом в БД
+                question_found = await db.questions.find_one({"question": quest['text']})
+                if not question_found:
+                    await db_service.add_question(db, quest['text'], quest['answer'])
+                    await message.reply(f"Отлично, загадка зарегистрирована! Твоя загадка: {quest['text']}")
+                else:
+                    await bot.send_message(message.chat.id, "Упс, эта загадка уже существует! Попробуй зарегистрировать другую загадку.")
+
             await state.finish()  # Выход из машины состояний, очищение хранилища
         except Exception as ex:
             print(str(ex))

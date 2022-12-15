@@ -14,8 +14,12 @@ class DbService:
         # Коллекция с пользователями (users)
         self.users = self.cluster[f"{self.config['db_name']}"][f"{self.config['users_collection']}"]
 
+        # Коллекция с вопросами (questions)
+        self.questions = self.cluster[f"{self.config['db_name']}"][f"{self.config['questions_collection']}"]
+
 
 async def add_user(db: DbService, user):
+    # Добавляет пользователя в БД
     date = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
     db.users.insert_one({
         "_id": user.id,
@@ -26,4 +30,12 @@ async def add_user(db: DbService, user):
         "bio": user.bio,
         "type": user.type,
         "title": user.title
+    })
+
+
+async def add_question(db: DbService, question, answer):
+    # Добавляет загадку в БД
+    db.questions.insert_one({
+        "question": question,
+        "answer": answer
     })
