@@ -113,6 +113,24 @@ async def set_gift_amount(message: types.Message, state=FSMContext):
 # endregion
 
 
+async def show_gifts(message: types.Message):
+    # Команда "Просмотреть подарки"
+    if message.chat.id in ADMIN_ID:
+        try:
+            gifts = await db.gifts.find().to_list(None)
+            gift_names = [g['name'] for g in gifts]
+            gift_amounts = [g['amount'] for g in gifts]
+            list_of_gifts = [
+                f"{n}\nКоличество: {a} шт." for n, a in zip(gift_names, gift_amounts)]
+
+            separator = "====="
+            await bot.send_message(message.chat.id, f"\n\n{separator}\n\n".join(list_of_gifts))
+
+        except Exception as ex:
+            print(str(ex))  # ToDo: логирование
+            await bot.send_message(message.chat.id, "Возникла ошибка. Пожалуйста, обратись к разработчику.")
+
+
 async def cancel(message: types.Message, state: FSMContext):
     # Handler выхода из конечного автомата
     if message.chat.id in ADMIN_ID:
@@ -133,6 +151,8 @@ def register_admin_commands(dispatcher: Dispatcher):
     dispatcher.register_message_handler(add_gift, commands=["add_new_gift"], state=None)
     dispatcher.register_message_handler(set_gift_name, state=FsmAdmin.set_gift_name)
     dispatcher.register_message_handler(set_gift_amount, state=FsmAdmin.set_gift_amount)
+
+    dispatcher.register_message_handler(show_gifts, commands=["show_gifts"], state=None)
 
     dispatcher.register_message_handler(cancel, state="*", commands="Отмена")
     dispatcher.register_message_handler(cancel, Text(equals="Отмена", ignore_case=True), state="*")
