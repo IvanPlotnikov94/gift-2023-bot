@@ -10,6 +10,8 @@ from services import db_service, db
 
 ADMIN_ID = get_admin_ids()
 
+# region Команда "Зарегистрировать загадку"
+
 
 async def register_new_quest(message: types.Message):
     # Команда "Зарегистрировать загадку"
@@ -44,7 +46,26 @@ async def finish_register(message: types.Message, state=FSMContext):
 
             await state.finish()  # Выход из машины состояний, очищение хранилища
         except Exception as ex:
-            print(str(ex))
+            print(str(ex))  # ToDo: логирование
+
+# endregion
+
+
+async def show_quests(message: types.Message):
+    # Команда "Просмотреть загадки"
+    if message.chat.id in ADMIN_ID:
+        try:
+            questions = await db.questions.find().to_list(None)
+            questions_text = [q['question'] for q in questions]
+            questions_answer = [q['answer'] for q in questions]
+            list_of_questions_and_answers = [
+                f"Загадка:\n{q}\nОтвет: {a}" for q, a in zip(questions_text, questions_answer)]
+
+            separator = "====="
+            await bot.send_message(message.chat.id, f"\n\n{separator}\n\n".join(list_of_questions_and_answers))
+
+        except Exception as ex:
+            print(str(ex))  # ToDo: логирование
 
 
 async def cancel(message: types.Message, state: FSMContext):
@@ -61,5 +82,8 @@ def register_admin_commands(dispatcher: Dispatcher):
     dispatcher.register_message_handler(register_new_quest, commands=["register_new_quest"], state=None)
     dispatcher.register_message_handler(register_new_answer, state=FsmAdmin.set_question)
     dispatcher.register_message_handler(finish_register, state=FsmAdmin.set_answer)
+
+    dispatcher.register_message_handler(show_quests, commands=["show_quests"], state=None)
+
     dispatcher.register_message_handler(cancel, state="*", commands="Отмена")
     dispatcher.register_message_handler(cancel, Text(equals="Отмена", ignore_case=True), state="*")
