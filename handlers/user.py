@@ -1,6 +1,7 @@
 from aiogram import Dispatcher, types
 from aiogram.types import ReplyKeyboardRemove
 from create_bot import dispatcher, bot
+from config import get_admin_ids
 
 QUESTS = [
     {
@@ -36,22 +37,23 @@ QUESTS = [
 
 async def handle_text(message: types.Message):
     # Получение любого текстового сообщения от пользователя
-    please_choose = 'Пожалуйста, выбери одну из загадок!'
-    match message.text:
-        case "1":
-            answer = get_question(1)
-        case "2":
-            answer = get_question(2)
-        case "3":
-            answer = get_question(3)
-        case "4":
-            answer = get_question(4)
-        case _:
-            answer = please_choose
-    if answer != please_choose:
-        await bot.send_message(message.chat.id, answer, reply_markup=ReplyKeyboardRemove())
-    else:
-        await bot.send_message(message.chat.id, answer)
+    if message.chat.id not in get_admin_ids():
+        please_choose = 'Пожалуйста, выбери одну из загадок!'
+        match message.text:
+            case "1":
+                answer = get_question(1)
+            case "2":
+                answer = get_question(2)
+            case "3":
+                answer = get_question(3)
+            case "4":
+                answer = get_question(4)
+            case _:
+                answer = please_choose
+        if answer != please_choose:
+            await bot.send_message(message.chat.id, answer, reply_markup=ReplyKeyboardRemove())
+        else:
+            await bot.send_message(message.chat.id, answer)
 
 
 def get_question(id):

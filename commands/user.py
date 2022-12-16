@@ -5,6 +5,7 @@ from create_bot import dispatcher, bot
 from config import get_admin_ids
 from states.user import FsmUser
 from services import db_service, db
+from keyboards import admin_kb
 
 
 async def start(message, res=False):
@@ -15,7 +16,7 @@ async def start(message, res=False):
 
         # Команда start
         if message.chat.id in get_admin_ids():
-            await bot.send_message(message.chat.id, "Приветствую, админ! Чего желаешь? Сделаю всё, что в моих силах!")
+            await bot.send_message(message.chat.id, "Приветствую, админ! Чего желаешь?", reply_markup=admin_kb.get_admin_main_menu())
         else:
             # Проверка пользователя на повторное участие. Поле 'hasWon' в коллекции 'users'
             hasWon = False
