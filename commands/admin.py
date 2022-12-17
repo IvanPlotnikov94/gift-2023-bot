@@ -185,7 +185,7 @@ async def show_gifts(message: types.Message):
 
 
 async def edit_photo_inline(callback: types.CallbackQuery, state=FSMContext):
-    # inline handler
+    # inline handler редактирования фото подарка
     gift_id = callback.data.replace("edit_photo ", "")
 
     async with state.proxy() as gift_edit:
@@ -208,6 +208,37 @@ async def edit_gift_photo(message: types.Message, state=FSMContext):
                 await db.gifts.update_one(query, photo_id)
                 await FsmAdmin.gifts.set()
                 await bot.send_message(message.chat.id, "Фотография успешно изменена.", reply_markup=admin_kb.back_to_menu())
+
+        except Exception as ex:
+            print(str(ex))  # ToDo: логирование
+            await state.finish()
+            await bot.send_message(message.chat.id, "Возникла ошибка. Пожалуйста, обратись к разработчику.", reply_markup=admin_kb.get_admin_main_menu())
+
+
+async def edit_amount_inline(callback: types.CallbackQuery, state=FSMContext):
+    # inline handler редактирования количества данного подарка
+    gift_id = callback.data.replace("edit_amount ", "")
+
+    async with state.proxy() as gift_edit:
+        gift_edit['gift_id'] = ObjectId(gift_id)
+
+    selected_gift = await db.gifts.find_one({"_id": gift_edit['gift_id']})
+    print("selected_gift:", selected_gift)
+    await callback.answer()
+    await FsmAdmin.edit_amount.set()
+    await callback.message.answer(f"Напиши актуальное количество подарка с наименованием {selected_gift['name']}", reply_markup=ReplyKeyboardRemove())
+
+
+async def edit_gift_amount(message: types.Message, state=FSMContext):
+    # Обработка редактирования количества подарка
+    if message.chat.id in ADMIN_ID:
+        try:
+            async with state.proxy() as gift_edit:
+                query = {"_id": gift_edit['gift_id']}
+                new_amount = {"$set": {"amount": message.text}}
+                await db.gifts.update_one(query, new_amount)
+                await FsmAdmin.gifts.set()
+                await bot.send_message(message.chat.id, "Количество успешно изменено.", reply_markup=admin_kb.back_to_menu())
 
         except Exception as ex:
             print(str(ex))  # ToDo: логирование
@@ -239,6 +270,7 @@ def register_admin_commands(dispatcher: Dispatcher):
     dispatcher.register_message_handler(set_gift_photo, content_types=['photo'], state=FsmAdmin.set_gift_photo)
     dispatcher.register_message_handler(edit_gift_photo, content_types=['photo'], state=FsmAdmin.edit_photo)
     dispatcher.register_message_handler(set_gift_amount, state=FsmAdmin.set_gift_amount)
+    dispatcher.register_message_handler(edit_gift_amount, state=FsmAdmin.edit_amount)
     # Команда "Просмотреть пул подарков"
     dispatcher.register_message_handler(show_gifts, commands=["show_gifts"], state=None)
 
@@ -265,5 +297,7 @@ def register_admin_commands(dispatcher: Dispatcher):
                                         u'Просмотреть пул подарков', state=FsmAdmin.gifts)
     dispatcher.register_callback_query_handler(
         edit_photo_inline, lambda message: message.data and message.data.startswith("edit_photo "), state=FsmAdmin.gifts)
+    dispatcher.register_callback_query_handler(
+        edit_amount_inline, lambda message: message.data and message.data.startswith("edit_amount "), state=FsmAdmin.gifts)
     dispatcher.register_message_handler(cancel, lambda message: message.text ==
                                         u'Назад', state=FsmAdmin.gifts)
