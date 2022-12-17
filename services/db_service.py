@@ -48,6 +48,7 @@ async def add_gift(db: DbService, gift):
     # Добавляет подарок в БД
     db.gifts.insert_one({
         "name": gift["name"],
+        "photo_id": gift["photo_id"],
         "amount": gift["amount"],
         "userId": gift["user_id"]
     })

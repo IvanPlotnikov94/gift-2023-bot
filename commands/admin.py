@@ -1,7 +1,7 @@
 import types
 from weakref import proxy
 from aiogram import Dispatcher, types
-from aiogram.types import ReplyKeyboardRemove
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 from create_bot import dispatcher, bot
 from aiogram.dispatcher import FSMContext
 from states.admin import FsmAdmin
@@ -9,6 +9,7 @@ from config import get_admin_ids
 from aiogram.dispatcher.filters import Text
 from services import db_service, db
 from keyboards import admin_kb
+from bson import ObjectId
 
 ADMIN_ID = get_admin_ids()
 
@@ -112,8 +113,8 @@ async def set_gift_name(message: types.Message, state=FSMContext):
             if message.text.lower() != "отмена":
                 async with state.proxy() as gift:
                     gift['name'] = message.text
-                await FsmAdmin.set_gift_amount.set()
-                await message.reply("Введи количество")
+                await FsmAdmin.set_gift_photo.set()
+                await message.reply("Теперь загрузи фотографию подарка")
             else:
                 await state.finish()
                 await message.reply("Главное меню", reply_markup=admin_kb.get_admin_main_menu())
@@ -123,8 +124,22 @@ async def set_gift_name(message: types.Message, state=FSMContext):
             await bot.send_message(message.chat.id, "Возникла ошибка. Пожалуйста, обратись к разработчику.", reply_markup=admin_kb.get_admin_main_menu())
 
 
+async def set_gift_photo(message: types.Message, state=FSMContext):
+    # Обработка добавления фото подарка
+    if message.chat.id in ADMIN_ID:
+        try:
+            async with state.proxy() as gift:
+                gift['photo_id'] = message.photo[0].file_id
+            await FsmAdmin.set_gift_amount.set()
+            await message.reply("И, наконец, введи количество")
+        except Exception as ex:
+            print(str(ex))  # ToDo: логирование
+            await state.finish()
+            await bot.send_message(message.chat.id, "Возникла ошибка. Пожалуйста, обратись к разработчику.", reply_markup=admin_kb.get_admin_main_menu())
+
+
 async def set_gift_amount(message: types.Message, state=FSMContext):
-    # Обработка ввода имеющегося количества данного подарка
+    # Обработка ввода имеющегося количества данного подарка и сохранение в БД
     if message.chat.id in ADMIN_ID:
         try:
             async with state.proxy() as gift:
@@ -132,7 +147,7 @@ async def set_gift_amount(message: types.Message, state=FSMContext):
             # Добавление подарка в БД
             gift_found = await db.gifts.find_one({"name": gift['name']})
             if not gift_found:
-                await db_service.add_gift(db, {"name": gift['name'], "amount": gift['amount'], "user_id": ""})
+                await db_service.add_gift(db, {"name": gift['name'], "photo_id": gift['photo_id'], "amount": gift['amount'], "user_id": ""})
                 await message.reply(f"Готово! Твой подарок: '{gift['name']}' в количестве {gift['amount']} шт. добавлен в базу.", reply_markup=admin_kb.get_admin_main_menu())
             else:
                 await bot.send_message(message.chat.id, "Этот подарок уже есть в базе! Попробуй добавить подарок с другим наименованием. А если хочешь изменить наименование/количество, воспользуйся отдельной кнопкой в меню.", reply_markup=admin_kb.get_admin_main_menu())
@@ -146,20 +161,57 @@ async def set_gift_amount(message: types.Message, state=FSMContext):
 
 
 async def show_gifts(message: types.Message):
-    # Команда "Просмотреть подарки"
+    # Команда "Просмотреть подарки" с возможностью редактирования
     if message.chat.id in ADMIN_ID:
         try:
             gifts = await db.gifts.find().to_list(None)
-            gift_names = [g['name'] for g in gifts]
-            gift_amounts = [g['amount'] for g in gifts]
-            list_of_gifts = [
-                f"{n}\nКоличество: {a} шт." for n, a in zip(gift_names, gift_amounts)]
+            for gift in gifts:
+                edit_markup = InlineKeyboardMarkup()
+                change_photo_button = InlineKeyboardButton(
+                    text="Фото", callback_data=f"edit_photo {gift['_id']}")
+                change_amount_button = InlineKeyboardButton(
+                    text="Количество", callback_data=f"edit_amount {gift['_id']}")
+                edit_markup.row(change_photo_button, change_amount_button)
 
-            separator = "====="
-            await bot.send_message(message.chat.id, f"\n\n{separator}\n\n".join(list_of_gifts), reply_markup=admin_kb.back_to_menu())
+                if 'photo_id' in gift:
+                    await bot.send_photo(message.chat.id, gift['photo_id'], f"{gift['name']}\nКоличество: {gift['amount']} шт.", reply_markup=admin_kb.back_to_menu())
+                    await bot.send_message(message.chat.id, text="^^^\nРедактировать", reply_markup=edit_markup)
+                else:
+                    await bot.send_message(message.chat.id, f"{gift['name']}\nКоличество: {gift['amount']} шт.", reply_markup=admin_kb.back_to_menu())
+                    await bot.send_message(message.chat.id, text="^^^\nРедактировать", reply_markup=edit_markup)
+        except Exception as ex:
+            print(str(ex))  # ToDo: логирование
+            await bot.send_message(message.chat.id, "Возникла ошибка. Пожалуйста, обратись к разработчику.", reply_markup=admin_kb.get_admin_main_menu())
+
+
+async def edit_photo_inline(callback: types.CallbackQuery, state=FSMContext):
+    # inline handler
+    gift_id = callback.data.replace("edit_photo ", "")
+
+    async with state.proxy() as gift_edit:
+        gift_edit['gift_id'] = ObjectId(gift_id)
+
+    selected_gift = await db.gifts.find_one({"_id": gift_edit['gift_id']})
+    print("selected_gift:", selected_gift)
+    await callback.answer()
+    await FsmAdmin.edit_photo.set()
+    await callback.message.answer(f"Отправь фото подарка с наименованием {selected_gift['name']}", reply_markup=ReplyKeyboardRemove())
+
+
+async def edit_gift_photo(message: types.Message, state=FSMContext):
+    # Обработка редактирования фото подарка
+    if message.chat.id in ADMIN_ID:
+        try:
+            async with state.proxy() as gift_edit:
+                query = {"_id": gift_edit['gift_id']}
+                photo_id = {"$set": {"photo_id": message.photo[0].file_id}}
+                await db.gifts.update_one(query, photo_id)
+                await FsmAdmin.gifts.set()
+                await bot.send_message(message.chat.id, "Фотография успешно изменена.", reply_markup=admin_kb.back_to_menu())
 
         except Exception as ex:
             print(str(ex))  # ToDo: логирование
+            await state.finish()
             await bot.send_message(message.chat.id, "Возникла ошибка. Пожалуйста, обратись к разработчику.", reply_markup=admin_kb.get_admin_main_menu())
 
 
@@ -184,6 +236,8 @@ def register_admin_commands(dispatcher: Dispatcher):
     # Команда "Добавить подарок"
     dispatcher.register_message_handler(add_gift, commands=["add_new_gift"], state=None)
     dispatcher.register_message_handler(set_gift_name, state=FsmAdmin.set_gift_name)
+    dispatcher.register_message_handler(set_gift_photo, content_types=['photo'], state=FsmAdmin.set_gift_photo)
+    dispatcher.register_message_handler(edit_gift_photo, content_types=['photo'], state=FsmAdmin.edit_photo)
     dispatcher.register_message_handler(set_gift_amount, state=FsmAdmin.set_gift_amount)
     # Команда "Просмотреть пул подарков"
     dispatcher.register_message_handler(show_gifts, commands=["show_gifts"], state=None)
@@ -209,5 +263,7 @@ def register_admin_commands(dispatcher: Dispatcher):
                                         u'Добавить подарок', state=FsmAdmin.gifts)
     dispatcher.register_message_handler(show_gifts, lambda message: message.text ==
                                         u'Просмотреть пул подарков', state=FsmAdmin.gifts)
+    dispatcher.register_callback_query_handler(
+        edit_photo_inline, lambda message: message.data and message.data.startswith("edit_photo "), state=FsmAdmin.gifts)
     dispatcher.register_message_handler(cancel, lambda message: message.text ==
                                         u'Назад', state=FsmAdmin.gifts)

@@ -9,4 +9,6 @@ class FsmAdmin(StatesGroup):
 
     gifts = State()
     set_gift_name = State()
+    set_gift_photo = State()
     set_gift_amount = State()
+    edit_photo = State()
