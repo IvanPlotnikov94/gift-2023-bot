@@ -1,3 +1,4 @@
+import random
 import types
 from aiogram import Dispatcher, types
 from aiogram.types import ReplyKeyboardRemove
@@ -79,9 +80,12 @@ async def get_prize(message: types.Message, state=FSMContext):
     # Ответ верный; запрос согласия на получение подарка
     try:
         if (message.text.lower() in ["да", "да!"]):
-            # Рандомный выбор подарка из оставшихся.
-            prize = "prizeName"  # Заменить
-            await bot.send_message(message.chat.id, f'Поздравляю, Вы выиграли {prize}! С наступающим Новым Годом!', reply_markup=ReplyKeyboardRemove())
+            prize = await get_random_gift()
+
+            if (prize is not None):
+                await bot.send_photo(message.chat.id, prize['photo_id'], f"Поздравляю, Вы выиграли {prize['name']}\nС наступающим Новым Годом!\nУвидимся в Новом Году на ноготочках ;)", reply_markup=ReplyKeyboardRemove())
+            else:
+                await bot.send_message(message.chat.id, f"Поздравляю, Вы выиграли подарок! А какой именно - уточните у Насти, пожалуйста, потому что у меня произошел непредвиденный сбой :)\nС наступающим Новым Годом!\nУвидимся в Новом Году на ноготочках ;)", reply_markup=ReplyKeyboardRemove())
             await state.finish()
         elif (message.text.lower() in ["нет", "нет!"]):
             await bot.send_message(message.chat.id, 'Серьезно? Не верю! Кто отказывается от подарка? Попробуйте еще раз!')
@@ -92,6 +96,7 @@ async def get_prize(message: types.Message, state=FSMContext):
         print(str(ex))
         await state.finish()
         await bot.send_message(message.chat.id, "Произошла ошибка. Пожалуйста, обратитесь к администратору.", reply_markup=ReplyKeyboardRemove())
+
 
 # region Вспомогательные методы
 
@@ -112,6 +117,16 @@ async def choose_quest(message):
         await bot.send_message(message.chat.id, 'Пожалуйста, выбирайте загадку!',  reply_markup=markup)
     else:
         await bot.send_message(message.chat.id, 'Доброго времени суток! Извините, но конкурс сейчас закрыт!', reply_markup=ReplyKeyboardRemove())
+
+
+async def get_random_gift():
+    # Рандомный выбор подарка из оставшихся
+    all_gifts = await db.gifts.find().to_list(None)
+    gifts = [gift for gift in all_gifts if int(gift['amount']) > 0]  # Не учитываются подарки, которых уже нет в наличии
+    gifts_id = [g['_id'] for g in gifts]
+    winner_id = random.choice(gifts_id)
+    prize = next((gift for gift in gifts if gift['_id'] == winner_id), None)
+    return prize
 
 # endregion
 
