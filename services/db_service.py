@@ -81,3 +81,9 @@ async def subtract_gift_amount(db: DbService, gift):
     # Фиксирует факт вручения подарка - уменьшает количество данного подарка в БД на 1
     db.gifts.update_one({"_id": gift["_id"]},
                         {"$set": {"amount": str(int(gift["amount"]) - 1)}})
+
+
+async def mark_gift(db: DbService, gift, user_id):
+    # Фиксирует, что данный пользователь забрал подарок
+    db.gifts.update_one({"_id": gift["_id"]},
+                        {"$push": {"won_user_id": user_id}})

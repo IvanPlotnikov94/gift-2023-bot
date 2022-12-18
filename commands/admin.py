@@ -18,7 +18,6 @@ async def questions(message: types.Message, state: FSMContext):
     # Пункт "Загадки" в главном меню
     if message.chat.id in ADMIN_ID:
         try:
-            logging.debug()
             await FsmAdmin.questions.set()
             await bot.send_message(message.chat.id, 'Подменю "Загадки"', reply_markup=admin_kb.get_questions_menu())
         except Exception as ex:
