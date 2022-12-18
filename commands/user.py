@@ -44,7 +44,7 @@ async def start(message, state: FSMContext, res=False):
 
 async def help(message, res=False):
     # Команда help
-    await bot.send_message(message.chat.id, "Раздел с помощью в разработке, попробуйте позже!")
+    await bot.send_message(message.chat.id, f"За помощью можно обратиться к:\nАдминистратор - Анастасия @shellacnastya\nРазработчик - Иван @Shad0w_Spark")
 
 
 def register_user_commands(dispatcher: Dispatcher):

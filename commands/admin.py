@@ -257,27 +257,18 @@ async def cancel(message: types.Message, state: FSMContext):
 
 
 def register_admin_commands(dispatcher: Dispatcher):
-    # Команда "Зарегистрировать загадку"
-    dispatcher.register_message_handler(register_new_quest, commands=["register_new_quest"], state=None)
     dispatcher.register_message_handler(register_new_answer, state=FsmAdmin.set_question)
     dispatcher.register_message_handler(finish_register, state=FsmAdmin.set_answer)
-    # Команда "Просмотреть загадки"
-    dispatcher.register_message_handler(show_questions, commands=["show_quests"], state=FsmAdmin.questions)
 
-    # Команда "Добавить подарок"
-    dispatcher.register_message_handler(add_gift, commands=["add_new_gift"], state=None)
     dispatcher.register_message_handler(set_gift_name, state=FsmAdmin.set_gift_name)
     dispatcher.register_message_handler(set_gift_photo, content_types=['photo'], state=FsmAdmin.set_gift_photo)
     dispatcher.register_message_handler(edit_gift_photo, content_types=['photo'], state=FsmAdmin.edit_photo)
     dispatcher.register_message_handler(set_gift_amount, state=FsmAdmin.set_gift_amount)
     dispatcher.register_message_handler(edit_gift_amount, state=FsmAdmin.edit_amount)
-    # Команда "Просмотреть пул подарков"
-    dispatcher.register_message_handler(show_gifts, commands=["show_gifts"], state=None)
 
     dispatcher.register_message_handler(cancel, lambda message: message.text.lower() ==
                                         u'отмена' or message.text.lower() == u'в главное меню', state="*")
 
-    # Загадки
     dispatcher.register_message_handler(questions, lambda message: message.text ==
                                         u'Загадки', state=None)
     dispatcher.register_message_handler(register_new_quest, lambda message: message.text ==
@@ -288,7 +279,7 @@ def register_admin_commands(dispatcher: Dispatcher):
                                         u'Просмотреть загадки', state=FsmAdmin.questions)
     dispatcher.register_message_handler(cancel, lambda message: message.text ==
                                         u'Назад', state=FsmAdmin.questions)
-    # Подарки
+
     dispatcher.register_message_handler(gifts, lambda message: message.text ==
                                         u'Подарки', state=None)
     dispatcher.register_message_handler(add_gift, lambda message: message.text ==
