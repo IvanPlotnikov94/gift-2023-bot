@@ -89,6 +89,8 @@ async def get_prize(message: types.Message, state=FSMContext):
             prize = await get_random_gift()
 
             if (prize is not None):
+                # Уменьшаем в БД количество оставшихся подарков на 1
+                await db_service.subtract_gift_amount(db, prize)
                 await bot.send_photo(message.chat.id, prize['photo_id'], f"Поздравляю, Вы выиграли {prize['name']}\nС наступающим Новым Годом!\nУвидимся в Новом Году на ноготочках 😉", reply_markup=ReplyKeyboardRemove())
             else:
                 await bot.send_message(message.chat.id, f"Поздравляю, Вы выиграли подарок! 🎁\n А какой именно - уточните у Насти, пожалуйста, потому что у меня произошел непредвиденный сбой 😅\nС наступающим Новым Годом!\nУвидимся в Новом Году на ноготочках 😉", reply_markup=ReplyKeyboardRemove())

@@ -75,3 +75,9 @@ async def add_gift(db: DbService, gift):
         "amount": gift["amount"],
         "userId": gift["user_id"]
     })
+
+
+async def subtract_gift_amount(db: DbService, gift):
+    # Фиксирует факт вручения подарка - уменьшает количество данного подарка в БД на 1
+    db.gifts.update_one({"_id": gift["_id"]},
+                        {"$set": {"amount": str(int(gift["amount"]) - 1)}})
