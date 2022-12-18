@@ -36,12 +36,35 @@ async def add_user(db: DbService, user):
     })
 
 
+async def update_user_has_won(db: DbService, user_id):
+    # Проставляет отметку в БД о том, что пользователь выиграл подарок
+    db.users.update_one({"_id": user_id},
+                        {"$set": {"has_won": "True"}})
+
+
+async def check_if_user_already_won(db: DbService, user_id):
+    # Проверяет, побеждал ли пользователь ранее
+    return await db.users.find({"has_won": "True"}).to_list(None)
+
+
 async def add_question(db: DbService, question, answer):
     # Добавляет загадку в БД
     db.questions.insert_one({
         "question": question,
         "answer": answer
     })
+
+
+async def get_available_questions(db: DbService, user_id):
+    # Получение вопросов, которых пользователь ещё не видел
+    available_questions = await db.questions.find({"got_user_id": {"$nin": [user_id]}}).to_list(None)
+    return available_questions
+
+
+async def update_question(db: DbService, question_id, user_id):
+    # Проставляет отметку, что пользователю был задан этот вопрос
+    db.questions.update_one({"_id": question_id},
+                            {"$push": {"got_user_id": user_id}})
 
 
 async def add_gift(db: DbService, gift):

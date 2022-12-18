@@ -15,17 +15,23 @@ ADMIN_ID = get_admin_ids()
 async def choose_question(message: types.Message, state=FSMContext):
     if message.chat.id not in ADMIN_ID:
         try:
-            questions = await db.questions.find().to_list(None)
+            questions = await db_service.get_available_questions(db, message.chat.id)
             questions_text = [q['question'] for q in questions]
             questions_answer = [a['answer'] for a in questions]
+
             if message.text.isdigit() and int(message.text) > 0 and int(message.text) <= len(questions_text):
                 async with state.proxy() as quest:
+                    quest['id'] = questions[int(message.text) - 1]['_id']
                     quest['question'] = questions_text[int(message.text) - 1]
                     quest['answer'] = questions_answer[int(message.text) - 1]
+                # Отметка в БД, что пользователь получил этот вопрос
+                print(quest['id'])
+                await db_service.update_question(db, quest['id'], message.chat.id)
+                # Отправка вопроса пользователю
                 await FsmUser.write_answer.set()
                 await bot.send_message(message.chat.id, quest['question'], reply_markup=ReplyKeyboardRemove())
             else:
-                questions = await get_all_questions()
+                questions = await db_service.get_available_questions(db, message.chat.id)
                 markup = user_kb.choose_question_kb(str(len(questions)))
                 await message.reply("Пожалуйста, воспользуйтесь кнопками для выбора загадки!", reply_markup=markup)
         except Exception as ex:
@@ -53,7 +59,7 @@ async def write_answer(message: types.Message, state=FSMContext):
                 # if (message.text.lower() in [item.lower() for item in quest['answer']]):
                 if (message.text.lower() == quest['answer'].lower()):
                     # Ответ правильный! Протестить работу lower() для всех элементов массива
-                    await message.reply("Верно! У меня для Вас есть подарок, готовы получить?", reply_markup=user_kb.right_answer_kb())
+                    await message.reply("Верно! 👏 У меня для Вас есть подарок, готовы получить? 🎁", reply_markup=user_kb.right_answer_kb())
                     await FsmUser.get_prize.set()
                 else:
                     await FsmUser.try_another.set()
@@ -83,15 +89,17 @@ async def get_prize(message: types.Message, state=FSMContext):
             prize = await get_random_gift()
 
             if (prize is not None):
-                await bot.send_photo(message.chat.id, prize['photo_id'], f"Поздравляю, Вы выиграли {prize['name']}\nС наступающим Новым Годом!\nУвидимся в Новом Году на ноготочках ;)", reply_markup=ReplyKeyboardRemove())
+                await bot.send_photo(message.chat.id, prize['photo_id'], f"Поздравляю, Вы выиграли {prize['name']}\nС наступающим Новым Годом!\nУвидимся в Новом Году на ноготочках 😉", reply_markup=ReplyKeyboardRemove())
             else:
-                await bot.send_message(message.chat.id, f"Поздравляю, Вы выиграли подарок! А какой именно - уточните у Насти, пожалуйста, потому что у меня произошел непредвиденный сбой :)\nС наступающим Новым Годом!\nУвидимся в Новом Году на ноготочках ;)", reply_markup=ReplyKeyboardRemove())
+                await bot.send_message(message.chat.id, f"Поздравляю, Вы выиграли подарок! 🎁\n А какой именно - уточните у Насти, пожалуйста, потому что у меня произошел непредвиденный сбой 😅\nС наступающим Новым Годом!\nУвидимся в Новом Году на ноготочках 😉", reply_markup=ReplyKeyboardRemove())
+            # Перед завершением работы производим отметку в БД о том, что пользователь выиграл подарок
+            await db_service.update_user_has_won(db, message.chat.id)
             await state.finish()
         elif (message.text.lower() in ["нет", "нет!"]):
-            await bot.send_message(message.chat.id, 'Серьезно? Не верю! Кто отказывается от подарка? Попробуйте еще раз!')
-            await bot.send_message(message.chat.id, "У меня для Вас есть подарок, готовы получить?", reply_markup=user_kb.right_answer_kb())
+            await bot.send_message(message.chat.id, 'Серьезно? Не верю! Кто отказывается от подарка? 😅 Попробуйте еще раз!')
+            await bot.send_message(message.chat.id, "У меня для Вас есть подарок, готовы получить? 🎁", reply_markup=user_kb.right_answer_kb())
         else:
-            await bot.send_message(message.chat.id, 'Я Вас не понял. Напишите "Да", если хотите получить приз!', reply_markup=user_kb.right_answer_kb())
+            await bot.send_message(message.chat.id, 'Я Вас не понял. Напишите "Да", если хотите получить подарок!', reply_markup=user_kb.right_answer_kb())
     except Exception as ex:
         print(str(ex))
         await state.finish()
@@ -101,22 +109,22 @@ async def get_prize(message: types.Message, state=FSMContext):
 # region Вспомогательные методы
 
 
-async def get_all_questions():
-    # Возвращает список всех загадок
-    questions = await db.questions.find().to_list(None)
-    questions_text = [q['question'] for q in questions]
-    return questions_text
-
-
 async def choose_quest(message):
-    questions = await get_all_questions()
-    markup = user_kb.choose_question_kb(str(len(questions)))
+    questions = await db_service.get_available_questions(db, message.chat.id)
+    print([q['question'] for q in questions])
+    print(len(questions))
+    if (len(questions) > 0):
+        markup = user_kb.choose_question_kb(str(len(questions)))
 
-    if markup != None:
-        await FsmUser.choose_question.set()
-        await bot.send_message(message.chat.id, 'Пожалуйста, выбирайте загадку!',  reply_markup=markup)
+        if markup != None:
+            await FsmUser.choose_question.set()
+            await bot.send_message(message.chat.id, 'Пожалуйста, выбирайте загадку!',  reply_markup=markup)
+        else:
+            await bot.send_message(message.chat.id, 'Извините, но конкурс сейчас закрыт!', reply_markup=ReplyKeyboardRemove())
     else:
-        await bot.send_message(message.chat.id, 'Доброго времени суток! Извините, но конкурс сейчас закрыт!', reply_markup=ReplyKeyboardRemove())
+        # Доступных загадок не осталось
+        await FsmUser.get_prize.set()
+        await bot.send_message(message.chat.id, "Ой, все загадки кончились! 😅\nНадеюсь, это будет самая большая неудача Вашего предстоящего года 🙏\nЗа Ваши настойчивость и усилия предлагаю утешительный приз! 💕", reply_markup=user_kb.right_answer_kb())
 
 
 async def get_random_gift():
