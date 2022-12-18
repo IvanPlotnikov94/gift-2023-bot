@@ -18,7 +18,7 @@ async def choose_question(message: types.Message, state=FSMContext):
             questions = await db.questions.find().to_list(None)
             questions_text = [q['question'] for q in questions]
             questions_answer = [a['answer'] for a in questions]
-            if int(message.text) <= len(questions_text):
+            if message.text.isdigit() and int(message.text) > 0 and int(message.text) <= len(questions_text):
                 async with state.proxy() as quest:
                     quest['question'] = questions_text[int(message.text) - 1]
                     quest['answer'] = questions_answer[int(message.text) - 1]
