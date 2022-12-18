@@ -6,7 +6,7 @@ from aiogram.dispatcher import FSMContext
 from create_bot import dispatcher, bot
 from config import get_admin_ids
 from states.user import FsmUser
-from services import db_service, db
+from services import db_service, db, logging
 from keyboards import user_kb
 
 ADMIN_ID = get_admin_ids()
@@ -15,17 +15,22 @@ ADMIN_ID = get_admin_ids()
 async def choose_question(message: types.Message, state=FSMContext):
     if message.chat.id not in ADMIN_ID:
         try:
+            logging.debug(f"Метод choose_question(). message.text: {message.text}")
             questions = await db_service.get_available_questions(db, message.chat.id)
             questions_text = [q['question'] for q in questions]
             questions_answer = [a['answer'] for a in questions]
+            logging.debug(
+                f"available questions: {questions}\nquestions_text: {questions_text}\nquestions_answer: {questions_answer}")
 
             if message.text.isdigit() and int(message.text) > 0 and int(message.text) <= len(questions_text):
+                logging.debug(
+                    f"message.text.isdigit(): {message.text.isdigit()}\nint(message.text): {int(message.text)}\nlen(questions_text): {len(questions_text)}")
                 async with state.proxy() as quest:
                     quest['id'] = questions[int(message.text) - 1]['_id']
                     quest['question'] = questions_text[int(message.text) - 1]
                     quest['answer'] = questions_answer[int(message.text) - 1]
                 # Отметка в БД, что пользователь получил этот вопрос
-                print(quest['id'])
+                logging.debug(str(quest))
                 await db_service.update_question(db, quest['id'], message.chat.id)
                 # Отправка вопроса пользователю
                 await FsmUser.write_answer.set()
@@ -35,7 +40,7 @@ async def choose_question(message: types.Message, state=FSMContext):
                 markup = user_kb.choose_question_kb(str(len(questions)))
                 await message.reply("Пожалуйста, воспользуйтесь кнопками для выбора загадки!", reply_markup=markup)
         except Exception as ex:
-            print(str(ex))
+            logging.exception(Exception)
             await state.finish()
             await bot.send_message(message.chat.id, "Произошла ошибка. Пожалуйста, обратитесь к администратору.", reply_markup=ReplyKeyboardRemove())
         # Поиск выбранной загадки по message.text
@@ -54,6 +59,7 @@ async def write_answer(message: types.Message, state=FSMContext):
     # Проверка введенного ответа
     if message.chat.id not in ADMIN_ID:
         try:
+            logging.debug(f"Метод write_answer(). message.text: {message.text}")
             async with state.proxy() as quest:
                 # Проверка по массиву правильных ответов
                 # if (message.text.lower() in [item.lower() for item in quest['answer']]):
@@ -65,7 +71,7 @@ async def write_answer(message: types.Message, state=FSMContext):
                     await FsmUser.try_another.set()
                     await message.reply("Это неправильный ответ! Хотите попробовать другую загадку?", reply_markup=user_kb.try_another_kb())
         except Exception as ex:
-            print(str(ex))
+            logging.exception(Exception)
             await state.finish()
             await bot.send_message(message.chat.id, "Произошла ошибка. Пожалуйста, обратитесь к администратору.", reply_markup=ReplyKeyboardRemove())
 
@@ -74,10 +80,11 @@ async def try_another(message: types.Message, state=FSMContext):
     # Обработчик повторной попытки
     if message.chat.id not in ADMIN_ID:
         try:
+            logging.debug(f"Метод try_another(). message.text: {message.text}")
             await FsmUser.choose_question.set()
             await choose_quest(message)
         except Exception as ex:
-            print(str(ex))
+            logging.exception(Exception)
             await state.finish()
             await bot.send_message(message.chat.id, "Произошла ошибка. Пожалуйста, обратитесь к администратору.", reply_markup=ReplyKeyboardRemove())
 
@@ -85,6 +92,7 @@ async def try_another(message: types.Message, state=FSMContext):
 async def get_prize(message: types.Message, state=FSMContext):
     # Ответ верный; запрос согласия на получение подарка
     try:
+        logging.debug(f"Метод get_prize(). message.text: {message.text}")
         if (message.text.lower() in ["да", "да!"]):
             prize = await get_random_gift()
 
@@ -103,7 +111,7 @@ async def get_prize(message: types.Message, state=FSMContext):
         else:
             await bot.send_message(message.chat.id, 'Я Вас не понял. Напишите "Да", если хотите получить подарок!', reply_markup=user_kb.right_answer_kb())
     except Exception as ex:
-        print(str(ex))
+        logging.exception(Exception)
         await state.finish()
         await bot.send_message(message.chat.id, "Произошла ошибка. Пожалуйста, обратитесь к администратору.", reply_markup=ReplyKeyboardRemove())
 
@@ -113,8 +121,8 @@ async def get_prize(message: types.Message, state=FSMContext):
 
 async def choose_quest(message):
     questions = await db_service.get_available_questions(db, message.chat.id)
-    print([q['question'] for q in questions])
-    print(len(questions))
+    logging.debug(
+        f"Метод choose_quest(). message.text: {message.text} [q['question'] for q in questions]: {[q['question'] for q in questions]}\nlen(questions): {len(questions)}")
     if (len(questions) > 0):
         markup = user_kb.choose_question_kb(str(len(questions)))
 
@@ -131,11 +139,17 @@ async def choose_quest(message):
 
 async def get_random_gift():
     # Рандомный выбор подарка из оставшихся
+    logging.debug(f"Метод get_random_gift().")
     all_gifts = await db.gifts.find().to_list(None)
+    logging.debug(f"all_gifts: {all_gifts}")
     gifts = [gift for gift in all_gifts if int(gift['amount']) > 0]  # Не учитываются подарки, которых уже нет в наличии
+    logging.debug(f"Без учета подарков, у которых количество = 0. gifts: {gifts}")
     gifts_id = [g['_id'] for g in gifts]
+    logging.debug(f"gifts_id: {gifts_id}")
     winner_id = random.choice(gifts_id)
+    logging.debug(f"winner_id: {winner_id}")
     prize = next((gift for gift in gifts if gift['_id'] == winner_id), None)
+    logging.debug(f"prize: {prize}")
     return prize
 
 # endregion

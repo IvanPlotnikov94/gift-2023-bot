@@ -7,7 +7,7 @@ from aiogram.dispatcher import FSMContext
 from states.admin import FsmAdmin
 from config import get_admin_ids
 from aiogram.dispatcher.filters import Text
-from services import db_service, db
+from services import db_service, db, logging
 from keyboards import admin_kb
 from bson import ObjectId
 
@@ -18,10 +18,11 @@ async def questions(message: types.Message, state: FSMContext):
     # Пункт "Загадки" в главном меню
     if message.chat.id in ADMIN_ID:
         try:
+            logging.debug()
             await FsmAdmin.questions.set()
             await bot.send_message(message.chat.id, 'Подменю "Загадки"', reply_markup=admin_kb.get_questions_menu())
         except Exception as ex:
-            print(str(ex))  # ToDo: логирование
+            logging.exception(Exception)  # ToDo: логирование
 
 
 # region Команда "Зарегистрировать загадку"
@@ -64,7 +65,7 @@ async def finish_register(message: types.Message, state=FSMContext):
 
             await state.finish()  # Выход из машины состояний, очищение хранилища
         except Exception as ex:
-            print(str(ex))  # ToDo: логирование
+            logging.exception(Exception)  # ToDo: логирование
 
 # endregion
 
@@ -83,7 +84,7 @@ async def show_questions(message: types.Message):
             await bot.send_message(message.chat.id, f"\n\n{separator}\n\n".join(list_of_questions_and_answers), reply_markup=admin_kb.back_to_menu())
 
         except Exception as ex:
-            print(str(ex))  # ToDo: логирование
+            logging.exception(Exception)  # ToDo: логирование
 
 
 async def gifts(message: types.Message, state: FSMContext):
@@ -93,7 +94,7 @@ async def gifts(message: types.Message, state: FSMContext):
             await FsmAdmin.gifts.set()
             await bot.send_message(message.chat.id, 'Подменю "Подарки"', reply_markup=admin_kb.get_gifts_menu())
         except Exception as ex:
-            print(str(ex))  # ToDo: логирование
+            logging.exception(Exception)  # ToDo: логирование
 
 
 # region Команда "Добавить подарок"
@@ -119,7 +120,7 @@ async def set_gift_name(message: types.Message, state=FSMContext):
                 await state.finish()
                 await message.reply("Главное меню", reply_markup=admin_kb.get_admin_main_menu())
         except Exception as ex:
-            print(str(ex))  # ToDo: логирование
+            logging.exception(Exception)  # ToDo: логирование
             await state.finish()
             await bot.send_message(message.chat.id, "Возникла ошибка. Пожалуйста, обратись к разработчику.", reply_markup=admin_kb.get_admin_main_menu())
 
@@ -133,7 +134,7 @@ async def set_gift_photo(message: types.Message, state=FSMContext):
             await FsmAdmin.set_gift_amount.set()
             await message.reply("И, наконец, введи количество")
         except Exception as ex:
-            print(str(ex))  # ToDo: логирование
+            logging.exception(Exception)  # ToDo: логирование
             await state.finish()
             await bot.send_message(message.chat.id, "Возникла ошибка. Пожалуйста, обратись к разработчику.", reply_markup=admin_kb.get_admin_main_menu())
 
@@ -154,7 +155,7 @@ async def set_gift_amount(message: types.Message, state=FSMContext):
 
             await state.finish()
         except Exception as ex:
-            print(str(ex))  # ToDo: логирование
+            logging.exception(Exception)  # ToDo: логирование
             await state.finish()
             await bot.send_message(message.chat.id, "Возникла ошибка. Пожалуйста, обратись к разработчику.", reply_markup=admin_kb.get_admin_main_menu())
 # endregion
@@ -180,7 +181,7 @@ async def show_gifts(message: types.Message):
                     await bot.send_message(message.chat.id, f"{gift['name']}\nКоличество: {gift['amount']} шт.", reply_markup=admin_kb.back_to_menu())
                     await bot.send_message(message.chat.id, text="^^^\nРедактировать", reply_markup=edit_markup)
         except Exception as ex:
-            print(str(ex))  # ToDo: логирование
+            logging.exception(Exception)  # ToDo: логирование
             await bot.send_message(message.chat.id, "Возникла ошибка. Пожалуйста, обратись к разработчику.", reply_markup=admin_kb.get_admin_main_menu())
 
 
@@ -210,7 +211,7 @@ async def edit_gift_photo(message: types.Message, state=FSMContext):
                 await bot.send_message(message.chat.id, "Фотография успешно изменена.", reply_markup=admin_kb.back_to_menu())
 
         except Exception as ex:
-            print(str(ex))  # ToDo: логирование
+            logging.exception(Exception)  # ToDo: логирование
             await state.finish()
             await bot.send_message(message.chat.id, "Возникла ошибка. Пожалуйста, обратись к разработчику.", reply_markup=admin_kb.get_admin_main_menu())
 
@@ -241,7 +242,7 @@ async def edit_gift_amount(message: types.Message, state=FSMContext):
                 await bot.send_message(message.chat.id, "Количество успешно изменено.", reply_markup=admin_kb.back_to_menu())
 
         except Exception as ex:
-            print(str(ex))  # ToDo: логирование
+            logging.exception(Exception)  # ToDo: логирование
             await state.finish()
             await bot.send_message(message.chat.id, "Возникла ошибка. Пожалуйста, обратись к разработчику.", reply_markup=admin_kb.get_admin_main_menu())
 
